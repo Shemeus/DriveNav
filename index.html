@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>DriveNav 2.0 Premium</title>
   <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="DriveNav" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230f172a'/%3E%3Cpath d='M42 120V60h22c19 0 32 12 32 30s-13 30-32 30H42zm18-14h5c9 0 14-6 14-16s-5-16-14-16h-5v32zm46 14V60h18v46h24v14h-42z' fill='%23ffffff'/%3E%3C/svg%3E" />
+  <link rel="manifest" id="manifestPlaceholder" />
   <style>
     :root {
       --bg: #0b1220;
@@ -374,6 +379,27 @@
     <div class="footer-note">DriveNav 2.0 Premium — online, mobiel en klaar voor Vercel.</div>
   </div>
 
+  <script>
+    const manifestObject = {
+      name: 'DriveNav 2.0 Premium',
+      short_name: 'DriveNav',
+      start_url: '.',
+      display: 'standalone',
+      background_color: '#0f172a',
+      theme_color: '#0f172a',
+      description: 'Telefoonboek en navigatie-app voor rijinstructeurs.',
+      icons: [
+        {
+          src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%230f172a'/%3E%3Cpath d='M120 344V168h68c59 0 100 35 100 88s-41 88-100 88h-68zm56-42h14c25 0 41-17 41-46s-16-46-41-46h-14v92zm142 42V168h53v124h74v52H318z' fill='%23ffffff'/%3E%3C/svg%3E",
+          sizes: '512x512',
+          type: 'image/svg+xml',
+          purpose: 'any maskable'
+        }
+      ]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifestObject)], { type: 'application/manifest+json' });
+    document.getElementById('manifestPlaceholder').setAttribute('href', URL.createObjectURL(manifestBlob));
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const SUPABASE_URL = 'https://yfnbycxrssanykhohqdx.supabase.co';
@@ -655,7 +681,37 @@
 
     els.search.addEventListener('input', render);
 
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        const CACHE_NAME = 'drivenav-premium-v1';
+        self.addEventListener('install', event => {
+          event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(['./'])));
+          self.skipWaiting();
+        });
+        self.addEventListener('activate', event => {
+          event.waitUntil(
+            caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
+          );
+          self.clients.claim();
+        });
+        self.addEventListener('fetch', event => {
+          if (event.request.method !== 'GET') return;
+          event.respondWith(
+            caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
+              const copy = response.clone();
+              caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+              return response;
+            }).catch(() => caches.match('./')))
+          );
+        });
+      `;
+      const swBlob = new Blob([swCode], { type: 'text/javascript' });
+      const swUrl = URL.createObjectURL(swBlob);
+      navigator.serviceWorker.register(swUrl).catch(console.error);
+    }
+
     loadStudents();
   </script>
 </body>
 </html>
+
